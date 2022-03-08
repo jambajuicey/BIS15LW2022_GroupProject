@@ -1,0 +1,191 @@
+---
+title: "Response to covid-19"
+date: '2022-03-08'
+output:
+  html_document:
+    theme: spacelab
+    toc: no
+    keep_md: yes 
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+library(here)
+library(tidyverse)
+library(janitor)
+library(skimr)
+library(naniar)
+library(purrr)
+library(ggplot2)
+library(tidyr)
+library(visdat)
+library(lubridate)
+library(skimr)
+library(shiny)
+library(shinydashboard)
+library(ggVennDiagram)
+library(RColorBrewer)
+```
+
+```{r}
+options(scipen = 999)
+```
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+covid <- readr::read_csv("Gov_Responses2Covid19_last.csv")
+covid
+```
+
+```{r}
+summary(covid)
+glimpse(covid)
+```
+
+```{r}
+covid <- covid %>%
+  rename(cov_date= d)
+covid
+```
+
+```{r}
+covid_clean <- covid %>%
+  mutate(cov_date = dmy(cov_date))
+covid_clean
+```
+```{r}
+covid_clean %>%
+  group_by(country) %>%
+  summarise(sum_cases = sum(cases),
+            sum_deaths= sum(deaths)
+            ) %>%
+  ggplot(aes(x=sum_cases, y=sum_deaths))+
+  geom_point()+
+  geom_smooth(method = lm, se=F)+
+  scale_x_log10()+
+  scale_y_log10()+
+  labs(title = "Number of Deaths vs. Cases for each Country",
+       x= "Number of Cases (log10 scaled)",
+       y= "Number of Deaths (log10 scaled)")
+```
+
+
+#Top 5 and Worst 5 Countries looking at cases & deaths
+```{r}
+covid_cases <- covid_clean %>%
+  select(country, cases) %>%
+  group_by(country) %>%
+  summarise(total_cases = sum(cases)) %>%
+  arrange(desc(total_cases))
+covid_cases
+```
+
+```{r}
+covid_deaths <- covid_clean %>%
+  select(country, deaths) %>%
+  group_by(country) %>%
+  summarise(total_deaths = sum(deaths)) %>%
+  arrange(desc(total_deaths))
+covid_deaths
+```
+## Most cases
+```{r}
+most_cases <- covid_cases %>%
+  top_n(10, total_cases)
+most_cases_vec <- most_cases %>%
+  pull(country)
+most_cases_vec
+```
+## Most Deaths
+```{r}
+most_deaths <- covid_deaths %>%
+   top_n(10, total_deaths)
+most_deaths_vec <- most_deaths %>%
+  pull(country)
+most_deaths_vec
+```
+## Least cases
+```{r}
+least_cases <- covid_cases %>%
+  top_n(-10, total_cases)
+least_cases_vec <- least_cases %>%
+  pull(country)
+least_cases_vec
+```
+
+## Least Deaths
+```{r}
+least_deaths <- covid_deaths %>%
+  top_n(-10, total_deaths)
+least_deaths_vec <- least_deaths %>%
+  pull(country)
+least_deaths_vec
+```
+```{r}
+most_list <- list(most_cases_vec, most_deaths_vec)
+ggVennDiagram(most_list, 
+              category.names= c("Most Cases", "Most Deaths"),
+              label_color = "red3")+
+  scale_fill_distiller(palette = "Blues")+
+  labs(title= "Overlap between Countries with Highest Number of Cases and Deaths")
+```
+```{r}
+least_list <- list(least_cases_vec, least_deaths_vec)
+ggVennDiagram(least_list, 
+              category.names= c("Least Cases", "Least Deaths"),
+              label_color = "red3")+
+  scale_fill_distiller(palette = "Blues")+
+  labs(title= "Overlap between Countries with Lowest Number of Cases and Deaths")
+```
+```{r}
+most_cases %>%
+  top_n(5, total_cases)
+least_cases %>%
+  top_n(-5, total_cases)
+```
+
+```{r}
+most_cases_5 <- covid_clean %>%
+  filter(country== "United States of America"|country== "India"|country== "Brazil"|country== "Russia"|country== "Colombia")
+most_cases_5
+```
+
+```{r}
+least_cases_5 <- covid_clean %>%
+  filter(country== "Solomon Islands"|country== "Marshall Islands"|country== "Anguilla"|country== "Laos"|country== "Saint Kitts and Nevis")
+least_cases_5
+```
+
+## 
+```{r}
+most_cases_5 %>%
+  ggplot(aes(x=cov_date, 
+             y=Rigidity_Public_Health,
+             color= country))+
+  geom_line() +
+  facet_wrap(~country, ncol = 1)+
+  labs(title = "Rigidity of Public Health for Top 5 Countries with Most Cases",
+       x= "Date")
+```
+```{r}
+least_cases_5 %>%
+  ggplot(aes(x=cov_date, 
+             y=Rigidity_Public_Health,
+             color= country))+
+  geom_line() +
+  facet_wrap(~country, ncol = 1)+
+  labs(title = "Rigidity of Public Health for Top 5 Countries with Least Cases",
+       x= "Date")
+```
+
