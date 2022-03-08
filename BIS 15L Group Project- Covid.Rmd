@@ -1,8 +1,10 @@
 ---
-title: 'Group Project: COVID'
+title: 'Group Project: COVID-19 Responses'
 author: "Julie Trundle"
 date: "2/15/2022"
-output: html_document
+output: 
+  html_document: 
+    keep_md: yes
 ---
 
 ```{r setup, include=FALSE}
@@ -18,6 +20,10 @@ library(here)
 library(dplyr)
 library(knitr)
 library(naniar)
+library(shiny)
+library(shinydashboard)
+library(lubridate)
+library(ggVennDiagram)
 ```
 
 ```{r}
@@ -25,29 +31,252 @@ covid <- read_csv(here("Gov_Responses2Covid19_last (1).csv"))
 ```
 
 ```{r}
+view(covid)
+```
+
+```{r}
+summary(covid)
+```
+
+```{r}
+glimpse(covid)
+```
+
+```{r}
+naniar::miss_var_summary(covid)
+```
+```{r}
+dim(covid)
+```
+
+```{r}
 names(covid)
 ```
 
 ```{r}
-view(covid)
+covid <- covid %>% 
+  rename(cov_date = d)
+names(covid)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+```{r}
+covid_clean <- covid %>% 
+  mutate(cov_date = dmy(cov_date)) %>% 
+  clean_names()
+covid_clean
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+Total number of cases per country: 
+```{r}
+covid_clean %>% 
+  select(country, cases) %>% 
+  group_by(country) %>% 
+  summarise(sum_cases=sum(cases)) %>% 
+  arrange(desc(sum_cases))
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r}
+covid_clean %>% 
+  group_by(country) %>% 
+  summarise(sum_cases=sum(cases)) %>% 
+  top_n(10, sum_cases) %>% 
+  ggplot(aes(x=country, y=sum_cases, fill=country))+
+  geom_col()+
+  theme(axis.text.x = element_text(angle=30))
+```
+
+Top 5 countries with the most total covid cases over 2020: United States, India, Brazil, Russia, Colombia. 
+
+Total sum of deaths per country: 
+```{r}
+covid_clean %>%
+  select(country, deaths) %>%
+  group_by(country) %>%
+  summarise(sum_deaths=sum(deaths)) %>%
+  arrange(desc(sum_deaths))
+```
+```{r}
+covid_clean %>% 
+  group_by(country) %>% 
+  summarise(sum_deaths=sum(deaths)) %>% 
+  top_n(10, sum_deaths) %>% 
+  ggplot(aes(x=country, y=sum_deaths, fill=country))+
+  geom_col()+
+  theme(axis.text.x = element_text(angle=30))
+```
+Top 5 countries with the most total deaths over 2020: United States of America, Brazil, India, Mexico, United Kingdom. 
+
+Facet wrap with cases of the top 5 countries with most cases: 
+
+```{r}
+covid_clean %>% 
+  filter(country=="United States of America" | country=="India" | country=="Brazil" | country=="Russia" | country=="Colombia") %>% 
+  select(country, cov_date, cases) %>% 
+  group_by(country) %>% 
+  summarize(sum_cases = sum(cases))
+```
+
+
+```{r}
+covid_clean %>% 
+  select(country, cov_date, cases) %>% 
+  filter(country=="United States of America" | country=="India" | country=="Brazil" | country=="Russia" | country=="Colombia") %>%
+  ggplot(aes(x=cov_date, y=cases, color=country))+
+  scale_y_log10()+
+  geom_point(size=0.2)+
+  geom_line()+
+  facet_wrap(~country)+
+  theme(axis.text.x = element_text(size=0))+
+  labs(title = "Top 5 Countries in Number of Cases",
+       x = "Date",
+       y = "Cases")
+```
+
+
+Economic measures taken by each country: 
+```{r}
+covid_clean %>% 
+  select(country, economic_measures) %>% 
+  filter(economic_measures!="NA") %>% 
+  group_by(country) %>% 
+  summarize(mean_economic_measures=mean(economic_measures)) %>% 
+  arrange(desc(mean_economic_measures))
+```
+```{r}
+covid_clean %>% 
+  select(country, economic_measures) %>% 
+  filter(economic_measures!="NA") %>% 
+  group_by(country) %>% 
+  summarize(mean_economic_measures=mean(economic_measures)) %>% 
+  arrange(mean_economic_measures)
+```
+
+Looking at difference in percent of cases between Thailand (most economic measures) and Eritrea (an example of no economic measures)
+```{r}
+covid_clean %>% 
+  select(country, cov_date, economic_measures, cases, population_2019) %>% 
+  filter(country=="Thailand" | country=="Eritrea") %>% 
+  mutate(percent_cases = cases/population_2019) %>% 
+  ggplot(aes(x=cov_date, y=percent_cases, color=country))+
+  geom_point(size=0.8)+
+  geom_line()+
+  geom_smooth(method=lm, se=F)+
+  theme(axis.text.x = element_blank())+
+  labs(title = "Percent Cases Comparison: Thailand and Eritrea",
+       x = "Date",
+       y = "Percent of Cases")
+```
+```{r}
+covid_clean %>% 
+  select(country, rigidity_public_health) %>% 
+  filter(rigidity_public_health!="NA") %>% 
+  group_by(country) %>%
+  summarize(mean_public_health_measures=mean(rigidity_public_health)) %>% 
+  arrange(desc(mean_public_health_measures))
+```
+```{r}
+covid_clean %>% 
+  select(country, rigidity_public_health) %>% 
+  filter(rigidity_public_health!="NA") %>% 
+  group_by(country) %>%
+  summarize(mean_public_health_measures=mean(rigidity_public_health)) %>% 
+  arrange((mean_public_health_measures))
+```
+
+```{r}
+covid_clean %>% 
+  select(country, cov_date, rigidity_public_health, cases, population_2019) %>% 
+  filter(country=="Morocco" | country=="Monaco") %>% 
+  mutate(percent_cases = cases/population_2019) %>% 
+  ggplot(aes(x=cov_date, y=percent_cases, color=country))+
+  geom_point(size=0.8)+
+  geom_line()+
+  geom_smooth(method=lm, se=F)+
+  theme(axis.text.x = element_blank())+
+  labs(title = "Percent Cases Comparison: Morocco and Monaco",
+       x = "Date",
+       y = "Percent of Cases")
+```
+
+```{r}
+covid_clean %>% 
+  select(country, cov_date, economic_measures) %>% 
+  filter(country=="United States of America" | country=="India" | country=="Brazil" | country=="Russia" | country=="Colombia") %>%
+  ggplot(aes(x=cov_date, y=economic_measures, color=country))+
+  geom_smooth(size=0.6, se=F)+
+  theme(axis.text.x = element_text(size=0))+
+  labs(title = "Economic Measures of ")
+```
+Scatter plot showing economic measures vs public health measures:
+
+```{r}
+covid_clean %>% 
+  select(country, economic_measures, rigidity_public_health) %>% 
+  filter(economic_measures!="NA") %>% 
+  filter(rigidity_public_health!="NA") %>% 
+  group_by(country) %>% 
+  summarize(mean_economic_measures=mean(economic_measures),
+            mean_public_health_measures=mean(rigidity_public_health)) %>% 
+  arrange(desc(mean_economic_measures))
+```
+
+```{r}
+covid_clean %>% 
+  select(country, economic_measures, rigidity_public_health) %>% 
+  filter(economic_measures!="NA") %>% 
+  filter(rigidity_public_health!="NA") %>% 
+  group_by(country) %>% 
+  summarize(mean_economic_measures=mean(economic_measures),
+            mean_public_health_measures=mean(rigidity_public_health)) %>% 
+  ggplot(aes(x=mean_economic_measures, y=mean_public_health_measures))+
+  geom_point(size=1)+
+  geom_smooth(method=lm)+
+  labs(title = "Economic Measures vs. Public Health Measures",
+       x = "Mean Economic Measures",
+       y = "Mean Public Health Measures")+
+  theme(title = element_text(size=14),
+        axis.title = element_text(size=11),
+        axis.text = element_text(size=8))
+```
+
+Venn Diagram showing countries with more than average economic measures vs public health measures: 
+
+```{r}
+summary(covid_clean)
+```
+
+```{r}
+economic_measures_implemented <- covid_clean %>% 
+  filter(economic_measures>="0.385") %>% 
+  pull(country)
+
+public_health_measures_implemented <- covid_clean %>% 
+  filter(rigidity_public_health>="0.301") %>% 
+  pull(country)
+```
+
+```{r}
+high_health_measures <- list(economic_measures_implemented, public_health_measures_implemented)
+```
+
+```{r}
+ggVennDiagram(high_health_measures, category.names = c("Economic Measures", "Health Measures"))
+```
+
+```{r}
+economic_measures_not_implemented <- covid %>% 
+  filter(Economic_Measures<="0.385") %>% 
+  pull(country)
+
+public_health_measures_not_implemented <- covid %>% 
+  filter(Rigidity_Public_Health<="0.301") %>% 
+  pull(country)
+```
+
+```{r}
+low_health_measures <- list(economic_measures_not_implemented, public_health_measures_not_implemented)
+```
+
+```{r}
+ggVennDiagram(low_health_measures, category.names = c("Low Economic Measures", "Low Public Health Measures"))
+```
